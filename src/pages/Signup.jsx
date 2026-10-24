@@ -40,7 +40,7 @@ const Signup = () => {
     );
 
     if (signupUser.fulfilled.match(resultAction)) {
-      navigate('/dashboard');
+      navigate('/');
     }
   };
 

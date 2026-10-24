@@ -6,6 +6,11 @@ import Login from './pages/Login';
 import Signup from './pages/Signup'
 import BookContainer from './components/BookContainer';
 
+import AdminGate from './admin/AdminGate';
+import AdminLayout from './admin/AdminLayout';
+import AdminDashboard from './admin/AdminDashboard'
+
+
 function App() {
 
   const router = createBrowserRouter([
@@ -33,7 +38,21 @@ function App() {
     {
       path: "/signup",
       element: <Signup />
-    }
+    },
+    {
+      path: '/admin',
+      element: (
+        <AdminGate>
+          <AdminLayout />
+        </AdminGate>
+      ),
+      children: [
+        {
+          index: true,
+          element: <AdminDashboard />,
+        },
+      ],
+    },
   ]);
 
   return (
