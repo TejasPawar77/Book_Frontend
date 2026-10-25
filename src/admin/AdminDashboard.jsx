@@ -260,7 +260,7 @@ export default function AdminDashboard() {
             <button
               key={path}
               onClick={() => navigate(path)}
-              className="text-left border-2 border-black bg-white p-5 shadow-[5px_5px_0px_#000] hover:shadow-[2px_2px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+              className="text-left border-2 border-black bg-white p-5 shadow-[5px_5px_0px_#000] hover:shadow-[2px_2px_0px_#000] hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
             >
               <div
                 className={`w-12 h-12 ${color} border-2 border-black flex items-center justify-center`}

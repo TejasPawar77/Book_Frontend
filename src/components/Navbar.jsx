@@ -1,4 +1,3 @@
-
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { NavLink, useNavigate } from 'react-router-dom'
@@ -10,13 +9,22 @@ const Navbar = () => {
   const navigate = useNavigate()
   const dispatch = useDispatch()
 
-  const { isAuthenticated, accessToken, user, username } = useSelector(
-    (state) => state.auth
-  )
+  const {
+    isAuthenticated,
+    accessToken,
+    user,
+    username,
+    isStaff,
+  } = useSelector((state) => state.auth)
 
   const loggedIn = Boolean(isAuthenticated || accessToken)
+
   const displayUsername =
-    username || user?.username || user?.user?.username || user?.name || 'User'
+    username ||
+    user?.username ||
+    user?.user?.username ||
+    user?.name ||
+    'User'
 
   const navLinks = [
     {
@@ -39,6 +47,19 @@ const Navbar = () => {
     },
   ]
 
+  // Show Dashboard only to staff/admin users.
+  const visibleNavLinks = isStaff
+    ? [
+      ...navLinks,
+      {
+        name: 'DASHBOARD',
+        to: '/admin',
+        activeBg: 'bg-[#A855F7]',
+        hoverBg: 'hover:bg-[#A855F7]',
+      },
+    ]
+    : navLinks
+
   const handleLogin = () => {
     setIsOpen(false)
     navigate('/login')
@@ -56,8 +77,8 @@ const Navbar = () => {
   }
 
   const linkClass = (link) => ({ isActive }) =>
-    `border-2 border-black px-3 py-2 transition-all ${isActive
-      ? `${link.activeBg} shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`
+    `inline-block border-2 px-3 py-2 font-bold transition-all ${isActive
+      ? `${link.activeBg} border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`
       : `border-transparent ${link.hoverBg}`
     }`
 
@@ -142,7 +163,7 @@ const Navbar = () => {
 
         {/* Desktop Navigation Links */}
         <div className="hidden md:flex items-center space-x-6 font-bold text-sm">
-          {navLinks.map((link) => (
+          {visibleNavLinks.map((link) => (
             <NavLink
               key={link.name}
               to={link.to}
@@ -152,8 +173,8 @@ const Navbar = () => {
                 <motion.span
                   whileHover={{ y: -2 }}
                   whileTap={{ y: 0 }}
-                  className={`inline-block ${isActive ? 'font-black' : ''
-                    }`}
+                  className={`block ${isActive ? 'font-black' : ''
+                    } `}
                 >
                   {link.name}
                 </motion.span>
@@ -222,7 +243,7 @@ const Navbar = () => {
             className="md:hidden overflow-hidden border-2 border-black bg-[#FFFDF5] mt-4 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
           >
             <div className="flex flex-col space-y-3 font-bold text-sm">
-              {navLinks.map((link) => (
+              {visibleNavLinks.map((link) => (
                 <NavLink
                   key={link.name}
                   to={link.to}

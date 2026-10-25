@@ -52,7 +52,7 @@ function App() {
           element: <AdminDashboard />,
         },
       ],
-    },
+    }
   ]);
 
   return (

@@ -4,9 +4,13 @@ import axios from 'axios'
 const backendUrl = import.meta.env.VITE_LOGIN_URL
 const adminProfileUrl = import.meta.env.VITE_ADMIN_PROFILE_URL
 
-// Get username and access token from common API response formats
+// Restore saved authentication data
+const storedToken = localStorage.getItem('accessToken')
+const storedUsername = localStorage.getItem('username')
+
+// Extract authentication data from common API response formats
 const getAuthData = (data) => {
-  const user = data?.user ?? data?.data?.user ?? data
+  const user = data?.user ?? data?.data?.user ?? null
 
   const username =
     user?.username ??
@@ -43,6 +47,7 @@ export const loginUser = createAsyncThunk(
       return rejectWithValue(
         error.response?.data?.detail ||
         error.response?.data?.error ||
+        error.response?.data?.message ||
         'Login failed. Please try again.'
       )
     }
@@ -56,7 +61,9 @@ export const checkAdminAccess = createAsyncThunk(
     const token = getState().auth.accessToken
 
     if (!token) {
-      return rejectWithValue('Access token is missing. Please log in again.')
+      return rejectWithValue(
+        'Access token is missing. Please log in again.'
+      )
     }
 
     if (!adminProfileUrl) {
@@ -90,35 +97,21 @@ export const checkAdminAccess = createAsyncThunk(
 // Replace this mock with your actual Django signup API.
 export const signupUser = createAsyncThunk(
   'auth/signupUser',
-  async (userData, { rejectWithValue }) => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      return {
-        user: {
-          id: 1,
-          username: userData.username || userData.name,
-          name: userData.name,
-          email: userData.email,
-        },
-        username: userData.username || userData.name,
-        accessToken: 'fake-jwt-token',
-      }
-    } catch (error) {
-      return rejectWithValue(error.message || 'Failed to create account')
-    }
+  async (_, { rejectWithValue }) => {
+    return rejectWithValue(
+      'Signup API is not configured. Connect your Django signup endpoint.'
+    )
   }
 )
 
 const initialState = {
   user: null,
-  username: null,
-  accessToken: null,
-  isAuthenticated: false,
+  username: storedUsername,
+  accessToken: storedToken,
+  isAuthenticated: Boolean(storedToken),
   isLoading: false,
   error: null,
 
-  // Admin verification state
   isStaff: false,
   adminStatus: 'idle',
   adminError: null,
@@ -139,6 +132,10 @@ const authSlice = createSlice({
       state.isStaff = false
       state.adminStatus = 'idle'
       state.adminError = null
+
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('username')
     },
 
     clearError: (state) => {
@@ -158,32 +155,34 @@ const authSlice = createSlice({
         state.isLoading = false
         state.error = null
 
-        // Django Simple JWT returns { refresh, access }
         const data = action.payload
-        const accessToken =
-          data?.access ??
-          data?.access_token ??
-          data?.accessToken ??
-          data?.data?.access ??
-          data?.data?.accessToken ??
-          null
+        const { user, username, accessToken } = getAuthData(data)
 
-        state.user = data?.user ?? data?.data?.user ?? null
-        state.username =
-          state.user?.username ??
-          data?.username ??
-          action.meta.arg.username
-
+        state.user = user
+        state.username = username ?? action.meta.arg.username
         state.accessToken = accessToken
         state.isAuthenticated = Boolean(accessToken)
+
+        if (accessToken) {
+          localStorage.setItem('accessToken', accessToken)
+          localStorage.setItem(
+            'username',
+            state.username
+          )
+
+          // Save refresh token if Django returned one
+          if (data?.refresh) {
+            localStorage.setItem('refreshToken', data.refresh)
+          }
+        } else {
+          localStorage.removeItem('accessToken')
+          state.error =
+            'Login response did not contain an access token.'
+        }
 
         state.isStaff = false
         state.adminStatus = 'idle'
         state.adminError = null
-
-        if (!accessToken) {
-          state.error = 'Login succeeded, but Django did not return an access token.'
-        }
       })
 
       .addCase(loginUser.rejected, (state, action) => {
@@ -197,6 +196,7 @@ const authSlice = createSlice({
         state.adminError = null
         state.isStaff = false
       })
+
       .addCase(checkAdminAccess.fulfilled, (state, action) => {
         state.adminStatus = 'succeeded'
 
@@ -208,11 +208,23 @@ const authSlice = createSlice({
           ? null
           : 'Your account is not authorized to access the admin panel.'
       })
+
       .addCase(checkAdminAccess.rejected, (state, action) => {
         state.adminStatus = 'failed'
         state.isStaff = false
         state.adminError =
           action.payload || 'Admin verification failed.'
+
+        // Clear invalid authentication if the server returns 401
+        if (
+          typeof action.payload === 'string' &&
+          action.payload.includes('session has expired')
+        ) {
+          state.accessToken = null
+          state.isAuthenticated = false
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+        }
       })
 
       // Signup
@@ -220,6 +232,7 @@ const authSlice = createSlice({
         state.isLoading = true
         state.error = null
       })
+
       .addCase(signupUser.fulfilled, (state, action) => {
         state.isLoading = false
 
@@ -232,10 +245,26 @@ const authSlice = createSlice({
         state.accessToken = accessToken
         state.isAuthenticated = Boolean(accessToken)
 
-        // A mock signup token must not grant admin access
+        if (accessToken) {
+          localStorage.setItem('accessToken', accessToken)
+
+          if (username) {
+            localStorage.setItem('username', username)
+          }
+
+          if (action.payload?.refresh) {
+            localStorage.setItem(
+              'refreshToken',
+              action.payload.refresh
+            )
+          }
+        }
+
         state.isStaff = false
         state.adminStatus = 'idle'
+        state.adminError = null
       })
+
       .addCase(signupUser.rejected, (state, action) => {
         state.isLoading = false
         state.error = action.payload || 'Signup failed'
